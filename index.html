@@ -3,147 +3,183 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IT Ticketing Portal</title>
+  <title>IT Helpdesk Portal</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body class="bg-slate-100 text-slate-800 p-4 md:p-8">
 
-  <div class="max-w-6xl mx-auto space-y-6">
+  <!-- AUTH CONTAINER (Shown if logged out) -->
+  <div id="auth-container" class="max-w-md mx-auto my-12 bg-white p-6 rounded-xl shadow-md border space-y-4">
+    <h2 class="text-xl font-bold text-center">Login to IT Helpdesk</h2>
+    <form id="auth-form" class="space-y-3">
+      <div>
+        <label class="block text-xs font-semibold mb-1">Email</label>
+        <input type="email" id="auth-email" required class="w-full border rounded-lg p-2 text-sm outline-none">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold mb-1">Password</label>
+        <input type="password" id="auth-password" required class="w-full border rounded-lg p-2 text-sm outline-none">
+      </div>
+      <div class="flex gap-2 pt-2">
+        <button type="button" onclick="handleAuth('login')" class="w-1/2 bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700">Login</button>
+        <button type="button" onclick="handleAuth('signup')" class="w-1/2 border border-blue-600 text-blue-600 py-2 rounded-lg text-sm font-medium hover:bg-blue-50">Sign Up</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- APP CONTAINER (Shown if logged in) -->
+  <div id="app-container" class="max-w-6xl mx-auto space-y-6 hidden">
     <!-- Header -->
-    <header class="flex justify-between items-center bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+    <header class="flex justify-between items-center bg-white p-6 rounded-xl shadow-sm border">
       <div>
         <h1 class="text-2xl font-bold text-slate-900">IT Helpdesk Portal</h1>
-        <p class="text-sm text-slate-500">Submit and track internal support requests</p>
+        <p class="text-sm text-slate-500" id="user-status-text">Logged in as: --</p>
       </div>
-      <button onclick="toggleModal(true)" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg text-sm flex items-center gap-2">
-        + New Ticket
-      </button>
+      <div class="flex items-center gap-3">
+        <button onclick="toggleModal(true)" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg text-sm">+ New Ticket</button>
+        <button onclick="logout()" class="border px-3 py-2 rounded-lg text-sm hover:bg-slate-50">Logout</button>
+      </div>
     </header>
 
-    <!-- Tickets List Container -->
-    <main class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-      <div class="p-4 border-b border-slate-200 bg-slate-50 font-semibold text-slate-700 grid grid-cols-12 gap-2 text-sm">
+    <!-- Tickets List -->
+    <main class="bg-white rounded-xl shadow-sm border overflow-hidden">
+      <div class="p-4 border-b bg-slate-50 font-semibold text-slate-700 grid grid-cols-12 gap-2 text-sm">
         <span class="col-span-4">Ticket</span>
         <span class="col-span-2">Category</span>
         <span class="col-span-2">Priority</span>
         <span class="col-span-2">Status</span>
-        <span class="col-span-2 text-right">Action</span>
+        <span class="col-span-2 text-right">Actions</span>
       </div>
-      
-      <div id="tickets-list" class="divide-y divide-slate-100 text-sm">
-        <p class="p-6 text-center text-slate-400">Loading tickets...</p>
-      </div>
+      <div id="tickets-list" class="divide-y text-sm"></div>
     </main>
   </div>
 
   <!-- Create Ticket Modal -->
   <div id="modal" class="fixed inset-0 bg-slate-900/40 hidden flex items-center justify-center p-4">
     <div class="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 space-y-4">
-      <h2 class="text-lg font-bold text-slate-900">Submit IT Ticket</h2>
-      
+      <h2 class="text-lg font-bold">Submit IT Ticket</h2>
       <form id="ticket-form" class="space-y-3">
         <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">Your Email</label>
-          <input type="email" id="email" required class="w-full border rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-        </div>
-        <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">Issue Title</label>
-          <input type="text" id="title" required class="w-full border rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+          <label class="block text-xs font-semibold mb-1">Issue Title</label>
+          <input type="text" id="title" required class="w-full border rounded-lg p-2 text-sm outline-none">
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">Category</label>
-            <select id="category" class="w-full border rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-              <option>Hardware</option>
-              <option>Software</option>
-              <option>Network</option>
-              <option>Access / Account</option>
+            <label class="block text-xs font-semibold mb-1">Category</label>
+            <select id="category" class="w-full border rounded-lg p-2 text-sm outline-none">
+              <option>Hardware</option><option>Software</option><option>Network</option><option>Access / Account</option>
             </select>
           </div>
           <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">Priority</label>
-            <select id="priority" class="w-full border rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-              <option>Low</option>
-              <option selected>Medium</option>
-              <option>High</option>
-              <option>Urgent</option>
+            <label class="block text-xs font-semibold mb-1">Priority</label>
+            <select id="priority" class="w-full border rounded-lg p-2 text-sm outline-none">
+              <option>Low</option><option selected>Medium</option><option>High</option><option>Urgent</option>
             </select>
           </div>
         </div>
         <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">Description</label>
-          <textarea id="description" rows="3" required class="w-full border rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+          <label class="block text-xs font-semibold mb-1">Description</label>
+          <textarea id="description" rows="3" required class="w-full border rounded-lg p-2 text-sm outline-none"></textarea>
         </div>
         <div class="flex justify-end gap-2 pt-2">
-          <button type="button" onclick="toggleModal(false)" class="px-4 py-2 text-sm rounded-lg border hover:bg-slate-50">Cancel</button>
-          <button type="submit" class="px-4 py-2 text-sm rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700">Submit Ticket</button>
+          <button type="button" onclick="toggleModal(false)" class="px-4 py-2 text-sm rounded-lg border">Cancel</button>
+          <button type="submit" class="px-4 py-2 text-sm rounded-lg bg-blue-600 text-white font-medium">Submit Ticket</button>
         </div>
       </form>
     </div>
   </div>
 
   <script>
-    // 1. CONFIGURATION (Replace with your actual keys from Supabase)
-    const SUPABASE_URL = 'https://okgjvsrjhhwkbbrhcbdz.supabase.co';
+    const SUPABASE_URL = 'https://okgjvsrjhhwkborhcbdz.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9rZ2p2c3JqaGh3a2JicmhjYmR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAzMTY2OTQsImV4cCI6MjEwNTg5MjY5NH0.vB8YyCj2z3NPbEmjAjyF888aI7DCeHSfOcbrqAzzilA';
-    
     const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // 2. Load Tickets
+    let currentUser = null;
+    let userRole = 'user';
+
+    async function initSession() {
+      const { data: { session } } = await db.auth.getSession();
+      if (session) {
+        currentUser = session.user;
+        const { data: profile } = await db.from('profiles').select('role').eq('id', currentUser.id).single();
+        if (profile) userRole = profile.role;
+
+        document.getElementById('auth-container').classList.add('hidden');
+        document.getElementById('app-container').classList.remove('hidden');
+        document.getElementById('user-status-text').innerHTML = 
+          `Logged in as: <b>${currentUser.email}</b> (${userRole === 'admin' ? '<span class="text-red-600 font-bold">ADMIN</span>' : 'Standard User'})`;
+
+        fetchTickets();
+      } else {
+        document.getElementById('auth-container').classList.remove('hidden');
+        document.getElementById('app-container').classList.add('hidden');
+      }
+    }
+
+    async function handleAuth(type) {
+      const email = document.getElementById('auth-email').value;
+      const password = document.getElementById('auth-password').value;
+
+      const { data, error } = type === 'login' 
+        ? await db.auth.signInWithPassword({ email, password })
+        : await db.auth.signUp({ email, password });
+
+      if (error) alert(error.message);
+      else {
+        if (type === 'signup') alert('Account created! Logging in...');
+        initSession();
+      }
+    }
+
+    async function logout() {
+      await db.auth.signOut();
+      location.reload();
+    }
+
     async function fetchTickets() {
       const container = document.getElementById('tickets-list');
       const { data: tickets, error } = await db.from('tickets').select('*').order('created_at', { ascending: false });
 
       if (error) {
-        container.innerHTML = `<p class="p-6 text-center text-red-500">Error loading tickets: ${error.message}</p>`;
+        container.innerHTML = `<p class="p-6 text-center text-red-500">${error.message}</p>`;
         return;
       }
 
       if (tickets.length === 0) {
-        container.innerHTML = `<p class="p-6 text-center text-slate-400">No tickets found.</p>`;
+        container.innerHTML = `<p class="p-6 text-center text-slate-400">No tickets available.</p>`;
         return;
       }
 
       container.innerHTML = tickets.map(t => `
-        <div class="p-4 grid grid-cols-12 gap-2 items-center hover:bg-slate-50 transition">
+        <div class="p-4 grid grid-cols-12 gap-2 items-center hover:bg-slate-50">
           <div class="col-span-4">
-            <p class="font-semibold text-slate-900">${escapeHtml(t.title)}</p>
-            <p class="text-xs text-slate-500">${escapeHtml(t.reporter_email)} · ${new Date(t.created_at).toLocaleDateString()}</p>
+            <p class="font-semibold text-slate-900">${t.title}</p>
+            <p class="text-xs text-slate-500">${t.reporter_email} · ${new Date(t.created_at).toLocaleDateString()}</p>
           </div>
-          <div class="col-span-2">
-            <span class="bg-slate-100 text-slate-700 text-xs px-2 py-1 rounded-md border">${t.category}</span>
-          </div>
-          <div class="col-span-2">
-            <span class="text-xs px-2 py-1 rounded-md font-medium ${getPriorityStyle(t.priority)}">${t.priority}</span>
-          </div>
-          <div class="col-span-2">
-            <span class="text-xs px-2 py-1 rounded-full ${getStatusStyle(t.status)}">${t.status}</span>
-          </div>
-          <div class="col-span-2 text-right">
-            <select onchange="updateStatus('${t.id}', this.value)" class="text-xs border rounded p-1 bg-white">
-              <option value="Open" ${t.status === 'Open' ? 'selected' : ''}>Open</option>
-              <option value="In Progress" ${t.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
-              <option value="Resolved" ${t.status === 'Resolved' ? 'selected' : ''}>Resolved</option>
-            </select>
+          <div class="col-span-2"><span class="bg-slate-100 text-xs px-2 py-1 rounded border">${t.category}</span></div>
+          <div class="col-span-2"><span class="text-xs px-2 py-1 rounded font-medium">${t.priority}</span></div>
+          <div class="col-span-2"><span class="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-800">${t.status}</span></div>
+          <div class="col-span-2 text-right space-x-1">
+            ${userRole === 'admin' ? `<button onclick="deleteTicket('${t.id}')" class="text-xs bg-red-100 text-red-600 px-2 py-1 rounded hover:bg-red-200">Delete</button>` : ''}
           </div>
         </div>
       `).join('');
     }
 
-    // 3. Create Ticket
     document.getElementById('ticket-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const payload = {
         title: document.getElementById('title').value,
-        reporter_email: document.getElementById('email').value,
+        description: document.getElementById('description').value,
         category: document.getElementById('category').value,
         priority: document.getElementById('priority').value,
-        description: document.getElementById('description').value,
+        reporter_email: currentUser.email,
+        user_id: currentUser.id
       };
 
       const { error } = await db.from('tickets').insert([payload]);
-      if (error) alert('Error submitting ticket: ' + error.message);
+      if (error) alert(error.message);
       else {
         toggleModal(false);
         document.getElementById('ticket-form').reset();
@@ -151,33 +187,18 @@
       }
     });
 
-    // 4. Update Status
-    async function updateStatus(id, newStatus) {
-      const { error } = await db.from('tickets').update({ status: newStatus }).eq('id', id);
-      if (error) alert('Error updating status: ' + error.message);
+    async function deleteTicket(id) {
+      if (!confirm('Are you sure you want to delete this ticket?')) return;
+      const { error } = await db.from('tickets').delete().eq('id', id);
+      if (error) alert(error.message);
       else fetchTickets();
     }
 
-    // Helpers
     function toggleModal(show) {
       document.getElementById('modal').classList.toggle('hidden', !show);
     }
-    function escapeHtml(str) {
-      return str.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-    }
-    function getPriorityStyle(p) {
-      if (p === 'High' || p === 'Urgent') return 'bg-red-50 text-red-700 border border-red-200';
-      if (p === 'Medium') return 'bg-amber-50 text-amber-700 border border-amber-200';
-      return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
-    }
-    function getStatusStyle(s) {
-      if (s === 'Resolved') return 'bg-slate-200 text-slate-700';
-      if (s === 'In Progress') return 'bg-blue-100 text-blue-800 font-medium';
-      return 'bg-emerald-100 text-emerald-800 font-medium';
-    }
 
-    // Init
-    fetchTickets();
+    initSession();
   </script>
 </body>
 </html>
